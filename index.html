@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower of Hanoi</title>
+<style>
+:root{--bg:#0f0f1a;--surface:#1a1a2e;--surface2:#16213e;--peg:#4a4a6a;--peg-shadow:#2a2a40;--text:#e8e8f0;--text-muted:#8888aa;--accent:#7c6af5;--win-gold:#f5c842;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;user-select:none;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(124,106,245,.12) 0%,transparent 70%);pointer-events:none;}
+
+h1{font-size:2rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;background:linear-gradient(135deg,#a78bfa,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.2rem;}
+.subtitle{font-size:.75rem;color:var(--text-muted);letter-spacing:.22em;text-transform:uppercase;margin-bottom:1rem;}
+
+.stats-bar{display:flex;gap:2rem;align-items:center;margin-bottom:.9rem;}
+.stat{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.stat-value{font-size:1.5rem;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;min-width:3ch;text-align:center;}
+.stat-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.15em;color:var(--text-muted);}
+.stat-divider{width:1px;height:1.8rem;background:rgba(255,255,255,.1);}
+.progress-bar-wrap{width:180px;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;}
+.progress-bar{height:100%;background:linear-gradient(90deg,#7c6af5,#f472b6);border-radius:2px;transition:width .4s ease;}
+
+.game-area{display:flex;align-items:flex-end;justify-content:center;width:860px;height:260px;position:relative;}
+.base-platform{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:820px;height:14px;background:linear-gradient(180deg,#3a3a5a 0%,#2a2a40 100%);border-radius:7px;border-top:2px solid rgba(124,106,245,.4);box-shadow:0 0 20px rgba(124,106,245,.15),0 4px 20px rgba(0,0,0,.5);}
+.tower{width:260px;height:250px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;padding-bottom:14px;cursor:pointer;transition:background .2s;border-radius:12px;}
+.tower.drop-target{background:rgba(124,106,245,.08);}
+.tower.drop-target::after{content:'';position:absolute;inset:4px;border:2px dashed rgba(124,106,245,.5);border-radius:10px;pointer-events:none;animation:pulse-border 1s ease-in-out infinite;}
+@keyframes pulse-border{0%,100%{opacity:.5;}50%{opacity:1;}}
+.tower-label{position:absolute;bottom:-22px;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-muted);}
+.peg{position:absolute;bottom:14px;width:10px;height:210px;background:linear-gradient(180deg,#6a6a8a 0%,var(--peg) 40%,var(--peg-shadow) 100%);border-radius:5px 5px 2px 2px;left:50%;transform:translateX(-50%);box-shadow:0 0 12px rgba(0,0,0,.4);pointer-events:none;z-index:0;}
+.peg::before{content:'';position:absolute;top:4px;left:50%;transform:translateX(-50%);width:4px;height:calc(100% - 8px);background:rgba(255,255,255,.08);border-radius:2px;}
+.disks-stack{position:relative;width:100%;display:flex;flex-direction:column;align-items:center;z-index:1;}
+.disk{height:22px;border-radius:11px;margin-bottom:3px;cursor:grab;position:relative;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.85);letter-spacing:.05em;transition:transform .12s ease,filter .12s ease;z-index:2;}
+.disk::before{content:'';position:absolute;top:3px;left:12px;right:12px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;pointer-events:none;}
+.disk:hover{transform:translateY(-3px) scaleY(1.05);filter:brightness(1.15);}
+.disk.dragging{opacity:.35;cursor:grabbing;}
+.disk-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:11px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:rgba(255,255,255,.95);filter:brightness(1.25);box-shadow:0 8px 30px rgba(0,0,0,.5);transform:rotate(-2deg) scale(1.06);}
+
+.controls{display:flex;gap:.75rem;margin-top:1.8rem;align-items:center;}
+.btn{padding:.5rem 1.4rem;border-radius:9px;border:1px solid rgba(124,106,245,.4);background:rgba(124,106,245,.1);color:var(--text);font-size:.82rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .15s;font-family:inherit;}
+.btn:hover{background:rgba(124,106,245,.25);border-color:rgba(124,106,245,.7);transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn.primary{background:linear-gradient(135deg,#7c6af5,#a855f7);border:none;color:#fff;}
+.btn.primary:hover{filter:brightness(1.1);}
+
+.hint-text{font-size:.7rem;color:var(--text-muted);letter-spacing:.05em;height:14px;text-align:center;margin-top:.5rem;}
+
+/* WIN */
+.win-overlay{position:fixed;inset:0;background:rgba(10,10,20,.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .4s;}
+.win-overlay.show{opacity:1;pointer-events:all;}
+.win-card{background:var(--surface2);border:1px solid rgba(245,200,66,.3);border-radius:20px;padding:2.2rem 2.8rem;text-align:center;animation:win-pop .5s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes win-pop{from{transform:scale(.7) translateY(30px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+.win-emoji{font-size:2.8rem;margin-bottom:.6rem;}
+.win-title{font-size:1.7rem;font-weight:800;background:linear-gradient(135deg,#f5c842,#f59e42);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.4rem;}
+.win-sub{font-size:.82rem;color:var(--text-muted);}
+.win-moves{font-size:2.5rem;font-weight:800;color:var(--win-gold);line-height:1;margin:.4rem 0;}
+.win-optimal{font-size:.75rem;color:var(--text-muted);margin-bottom:1.2rem;}
+.win-time{font-size:1rem;font-weight:600;color:#a78bfa;margin-bottom:1.2rem;}
+
+/* TIMEOUT */
+.timeout-overlay{position:fixed;inset:0;background:rgba(10,10,20,.85);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .4s;}
+.timeout-overlay.show{opacity:1;pointer-events:all;}
+.timeout-card{background:var(--surface2);border:1px solid rgba(255,68,68,.3);border-radius:20px;padding:2.2rem 2.8rem;text-align:center;animation:win-pop .5s cubic-bezier(.34,1.56,.64,1) both;}
+.timeout-emoji{font-size:2.8rem;margin-bottom:.6rem;}
+.timeout-title{font-size:1.7rem;font-weight:800;background:linear-gradient(135deg,#ff4444,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.6rem;}
+.timeout-sub{font-size:.85rem;color:var(--text-muted);margin-bottom:1.4rem;line-height:1.6;}
+
+/* PARTICLES */
+.particles{position:fixed;inset:0;pointer-events:none;z-index:999;overflow:hidden;}
+.particle{position:absolute;animation:fall linear forwards;}
+@keyframes fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1;}100%{transform:translateY(110vh) rotate(720deg);opacity:0;}}
+.invalid-flash{animation:shake .35s ease;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+@keyframes pulse-red{0%,100%{opacity:1;}50%{opacity:.35;}}
+</style>
+</head>
+<body>
+
+<h1>Tower of Hanoi</h1>
+<p class="subtitle">8 Disks · Drag or click to move · 8 minutes</p>
+
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-value" id="movesEl">0</span>
+    <span class="stat-label">Moves</span>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <span class="stat-value" id="optimalEl">255</span>
+    <span class="stat-label">Optimal</span>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <span class="stat-value" id="timerEl">8:00</span>
+    <span class="stat-label">Time Left</span>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+    <span class="stat-label" id="progressLabel">Progress</span>
+  </div>
+</div>
+
+<div class="game-area">
+  <div class="tower" id="peg0" data-peg="0"><div class="peg"></div><div class="disks-stack" id="stack0"></div><span class="tower-label">A — Source</span></div>
+  <div class="tower" id="peg1" data-peg="1"><div class="peg"></div><div class="disks-stack" id="stack1"></div><span class="tower-label">B — Auxiliary</span></div>
+  <div class="tower" id="peg2" data-peg="2"><div class="peg"></div><div class="disks-stack" id="stack2"></div><span class="tower-label">C — Target</span></div>
+  <div class="base-platform"></div>
+</div>
+
+<div class="hint-text" id="hintEl">Pick a disk from Peg A to start</div>
+
+<div class="controls">
+  <button class="btn primary" onclick="resetGame()">↺ New Game</button>
+</div>
+
+<!-- WIN -->
+<div class="win-overlay" id="winOverlay">
+  <div class="win-card">
+    <div class="win-emoji">🏆</div>
+    <div class="win-title">Puzzle Solved!</div>
+    <div class="win-sub">You completed it in</div>
+    <div class="win-moves" id="winMoves">0</div>
+    <div class="win-optimal" id="winOptimal">moves · optimal: 255</div>
+    <div class="win-time" id="winTime"></div>
+    <button class="btn primary" onclick="closeWin();resetGame()">↺ Play Again</button>
+  </div>
+</div>
+
+<!-- TIMEOUT -->
+<div class="timeout-overlay" id="timeoutOverlay">
+  <div class="timeout-card">
+    <div class="timeout-emoji">⏰</div>
+    <div class="timeout-title">Time's Up!</div>
+    <div class="timeout-sub">You ran out of 8 minutes.<br>Better luck next time!</div>
+    <button class="btn primary" onclick="document.getElementById('timeoutOverlay').classList.remove('show');resetGame()">↺ Try Again</button>
+  </div>
+</div>
+
+<div class="particles" id="particles"></div>
+
+<script>
+const COLORS=['#e84393','#e8543a','#e88a2a','#d4c020','#4caf50','#29b6f6','#7c6af5','#e040fb'];
+const DISK_LABELS=['VIII','VII','VI','V','IV','III','II','I'];
+const NUM_DISKS=8;
+const COUNTDOWN=480;
+
+let pegs=[[],[],[]], moves=0;
+let dragging=null, ghost=null, selected=null;
+let timerInterval=null, seconds=COUNTDOWN, started=false, timesUp=false;
+
+function diskWidth(size){return 52+(220-52)*(size-1)/(NUM_DISKS-1);}
+function optimal(){return 255;}
+
+function initGame(){
+  pegs=[[],[],[]];
+  for(let i=NUM_DISKS;i>=1;i--) pegs[0].push(i);
+  moves=0; selected=null; started=false; seconds=COUNTDOWN; timesUp=false;
+  if(timerInterval) clearInterval(timerInterval);
+  document.getElementById('timerEl').textContent='8:00';
+  document.getElementById('timerEl').style.color='';
+  document.getElementById('timerEl').style.animation='';
+  document.getElementById('progressBar').style.width='0%';
+  document.getElementById('progressLabel').textContent='Progress';
+  document.getElementById('hintEl').textContent='Pick a disk from Peg A to start';
+  document.getElementById('timeoutOverlay').classList.remove('show');
+  renderAll();
+}
+
+function updateStats(){
+  document.getElementById('movesEl').textContent=moves;
+  const m=Math.floor(seconds/60), s=seconds%60;
+  document.getElementById('timerEl').textContent=`${m}:${s.toString().padStart(2,'0')}`;
+  const tel=document.getElementById('timerEl');
+  if(seconds<=30){tel.style.color='#ff4444';tel.style.animation='pulse-red .6s ease-in-out infinite';}
+  else if(seconds<=60){tel.style.color='#ff8c00';tel.style.animation='';}
+  else{tel.style.color='';tel.style.animation='';}
+  const pct=Math.round(pegs[2].length/NUM_DISKS*100);
+  document.getElementById('progressBar').style.width=pct+'%';
+  document.getElementById('progressLabel').textContent=pct+'% complete';
+}
+
+function renderAll(){
+  for(let p=0;p<3;p++){
+    const stack=document.getElementById('stack'+p);
+    stack.innerHTML='';
+    for(let i=pegs[p].length-1;i>=0;i--) stack.appendChild(createDiskEl(pegs[p][i],p));
+  }
+  updateStats();
+}
+
+function createDiskEl(size,pegIdx){
+  const d=document.createElement('div');
+  d.className='disk'; d.dataset.size=size; d.dataset.peg=pegIdx;
+  const w=diskWidth(size), ci=NUM_DISKS-size;
+  d.style.cssText=`width:${w}px;background:linear-gradient(180deg,${lighten(COLORS[ci],20)} 0%,${COLORS[ci]} 60%,${darken(COLORS[ci],20)} 100%);box-shadow:0 3px 10px ${COLORS[ci]}55;`;
+  d.textContent=DISK_LABELS[NUM_DISKS-size];
+  d.draggable=true;
+  d.addEventListener('dragstart',onDragStart);
+  d.addEventListener('dragend',onDragEnd);
+  d.addEventListener('click',onDiskClick);
+  return d;
+}
+
+function lighten(hex,a){const n=parseInt(hex.slice(1),16);return`rgb(${Math.min(255,(n>>16)+a)},${Math.min(255,((n>>8)&0xff)+a)},${Math.min(255,(n&0xff)+a)})`;}
+function darken(hex,a){const n=parseInt(hex.slice(1),16);return`rgb(${Math.max(0,(n>>16)-a)},${Math.max(0,((n>>8)&0xff)-a)},${Math.max(0,(n&0xff)-a)})`;}
+function topDisk(p){return pegs[p].length>0?pegs[p][pegs[p].length-1]:null;}
+function isValidMove(f,t){if(f===t)return false;const td=topDisk(f);if(!td)return false;const tt=topDisk(t);return !tt||td<tt;}
+
+function makeMove(from,to){
+  if(timesUp) return false;
+  if(!isValidMove(from,to)){flashInvalid(to);return false;}
+  if(!started){
+    started=true;
+    timerInterval=setInterval(()=>{
+      seconds--;
+      updateStats();
+      if(seconds<=0) timeOut();
+    },1000);
+  }
+  pegs[to].push(pegs[from].pop());
+  moves++;
+  renderAll();
+  checkWin();
+  return true;
+}
+
+function flashInvalid(p){
+  const el=document.getElementById('peg'+p);
+  el.classList.add('invalid-flash');
+  setTimeout(()=>el.classList.remove('invalid-flash'),350);
+}
+
+function checkWin(){
+  if(pegs[2].length===NUM_DISKS){
+    clearInterval(timerInterval);
+    setTimeout(showWin,400);
+  }
+}
+
+function showWin(){
+  const elapsed=COUNTDOWN-seconds;
+  const m=Math.floor(elapsed/60), s=elapsed%60;
+  document.getElementById('winMoves').textContent=moves;
+  document.getElementById('winOptimal').textContent=`moves · optimal: 255`;
+  document.getElementById('winTime').textContent=`Time: ${m}:${s.toString().padStart(2,'0')}`;
+  document.getElementById('winOverlay').classList.add('show');
+  spawnParticles();
+}
+
+function closeWin(){
+  document.getElementById('winOverlay').classList.remove('show');
+  clearParticles();
+}
+
+function timeOut(){
+  clearInterval(timerInterval);
+  timesUp=true;
+  seconds=0; updateStats();
+  document.getElementById('hintEl').textContent="⏰ Time's up! Press Try Again to restart.";
+  const tel=document.getElementById('timerEl');
+  tel.textContent='0:00'; tel.style.color='#ff4444'; tel.style.animation='pulse-red .6s ease-in-out infinite';
+  document.getElementById('timeoutOverlay').classList.add('show');
+}
+
+function resetGame(){ closeWin(); initGame(); }
+
+// ── DRAG & DROP ──────────────────────────────────────────────
+document.querySelectorAll('.tower').forEach(tower=>{
+  tower.addEventListener('dragover',e=>{
+    e.preventDefault();
+    const p=parseInt(tower.dataset.peg);
+    if(dragging!==null&&isValidMove(dragging.peg,p)) tower.classList.add('drop-target');
+  });
+  tower.addEventListener('dragleave',()=>tower.classList.remove('drop-target'));
+  tower.addEventListener('drop',e=>{
+    e.preventDefault(); tower.classList.remove('drop-target');
+    if(dragging!==null){ makeMove(dragging.peg,parseInt(tower.dataset.peg)); dragging=null; selected=null; document.getElementById('hintEl').textContent=''; }
+  });
+  tower.addEventListener('click',e=>{
+    if(timesUp) return;
+    if(e.target.classList.contains('disk')) return;
+    const p=parseInt(tower.dataset.peg);
+    if(selected!==null){ if(makeMove(selected.peg,p)){ selected=null; document.getElementById('hintEl').textContent=''; clearHighlight(); } }
+  });
+});
+
+function onDragStart(e){
+  if(timesUp){e.preventDefault();return;}
+  const size=parseInt(e.target.dataset.size), peg=parseInt(e.target.dataset.peg);
+  if(topDisk(peg)!==size){e.preventDefault();return;}
+  dragging={size,peg}; e.target.classList.add('dragging');
+  const ci=NUM_DISKS-size, w=diskWidth(size);
+  ghost=document.createElement('div'); ghost.className='disk-ghost';
+  ghost.textContent=DISK_LABELS[NUM_DISKS-size];
+  ghost.style.cssText=`width:${w}px;background:linear-gradient(180deg,${lighten(COLORS[ci],20)},${COLORS[ci]},${darken(COLORS[ci],20)});`;
+  document.body.appendChild(ghost);
+  const img=new Image(); img.src='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  e.dataTransfer.setDragImage(img,0,0); e.dataTransfer.effectAllowed='move';
+}
+document.addEventListener('dragover',e=>{
+  if(ghost){ghost.style.left=(e.clientX-parseInt(ghost.style.width)/2)+'px';ghost.style.top=(e.clientY-11)+'px';}
+});
+function onDragEnd(e){
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.tower').forEach(t=>t.classList.remove('drop-target'));
+  if(ghost){ghost.remove();ghost=null;} dragging=null;
+}
+
+// ── CLICK SELECT ─────────────────────────────────────────────
+function onDiskClick(e){
+  if(timesUp) return;
+  e.stopPropagation();
+  const size=parseInt(e.target.dataset.size), peg=parseInt(e.target.dataset.peg);
+  if(topDisk(peg)!==size){ document.getElementById('hintEl').textContent='Only the top disk can be moved'; return; }
+  if(selected!==null&&selected.peg!==peg){ if(makeMove(selected.peg,peg)){ selected=null; document.getElementById('hintEl').textContent=''; } clearHighlight(); return; }
+  if(selected&&selected.peg===peg){ clearHighlight(); return; }
+  selected={size,peg}; highlightDisk(e.target);
+  document.getElementById('hintEl').textContent='Now click a peg to place it';
+}
+function highlightDisk(el){ clearHighlight(); el.style.outline='2px solid rgba(124,106,245,.9)'; el.style.outlineOffset='2px'; el.style.filter='brightness(1.3)'; }
+function clearHighlight(){ document.querySelectorAll('.disk').forEach(d=>{d.style.outline='';d.style.outlineOffset='';d.style.filter='';}); selected=null; }
+
+// ── PARTICLES ────────────────────────────────────────────────
+function spawnParticles(){
+  const c=document.getElementById('particles'); c.innerHTML='';
+  for(let i=0;i<70;i++){
+    const p=document.createElement('div'); p.className='particle';
+    p.style.cssText=`left:${Math.random()*100}vw;top:-10px;background:${COLORS[Math.floor(Math.random()*8)]};animation-duration:${1.2+Math.random()*2}s;animation-delay:${Math.random()*.8}s;width:${5+Math.random()*8}px;height:${5+Math.random()*8}px;border-radius:${Math.random()>.5?'50%':'3px'};`;
+    c.appendChild(p);
+  }
+  setTimeout(clearParticles,4000);
+}
+function clearParticles(){ document.getElementById('particles').innerHTML=''; }
+
+initGame();
+</script>
+</body>
+</html>
